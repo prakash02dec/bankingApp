@@ -1,2 +1,2 @@
 # bankingApp
-project to explore and learn backend development with golang related framework
+simple project to explore and learn backend development with golang related framework 
