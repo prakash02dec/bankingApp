@@ -13,10 +13,14 @@ func TestTransfer(t *testing.T) {
 	fromAccount1 := createRandomAccount(t)
 	toAccount2 := createRandomAccount(t)
 
+	fmt.Printf("Before transfer:\n")
+	fmt.Printf("From Account Balance: %v\n", fromAccount1.Balance)
+	fmt.Printf("To Account Balance: %v\n", toAccount2.Balance)
+
 	// Run n concurrent transfers
 	amount := int64(10)
 	n := 5
-	errs := make(chan error)
+	errs := make(chan error)																																																																														
 	results := make(chan TransferTxResult)
 
 	for i:= 0 ; i < n ; i++ {
@@ -27,7 +31,7 @@ func TestTransfer(t *testing.T) {
 				ToAccountID:   toAccount2.ID,
 				Amount:        amount,
 			})
-			// If there is an error, log it
+		 	// If there is an error, log it
 			if err != nil {
 				t.Errorf("Transfer failed: %v", err)
 			}
@@ -36,7 +40,9 @@ func TestTransfer(t *testing.T) {
 			results <- result
 		}()
 	}
-	
+	existed := make(map[int64]bool)
+
+	// Wait for all transfers to complete in parallel via channels
 	for i:= 0; i < n; i++ {
 		err := <-errs
 		require.NoError(t, err)
@@ -94,8 +100,38 @@ func TestTransfer(t *testing.T) {
 		toAccount, err := testQueries.GetAccount(context.Background(), result.ToAccount.ID)
 		require.NoError(t, err)
 		require.NotEmpty(t, toAccount)
-	}
 
+		// Check the balance
+		fmt.Printf("Balance in each Transaction:\n")
+		fmt.Printf("From Account Balance: %v\n", result.FromAccount.Balance)	
+		fmt.Printf("To Account Balance: %v\n", result.ToAccount.Balance)
+
+
+		diff1 := fromAccount1.Balance - result.FromAccount.Balance
+		diff2 := result.ToAccount.Balance - toAccount2.Balance
+		require.Equal(t, diff1, diff2)
+		require.True(t, diff1 > 0)
+
+		require.True(t, diff1%amount == 0, "Balance difference should be a multiple of the transfer amount")
+		k := diff1 / amount
+		require.True(t, k > 0 && k <= int64(n), "k should be between 1 and n")
+		require.Equal(t, fromAccount1.Balance-int64(k)*amount, result.FromAccount.Balance)
+		require.Equal(t, toAccount2.Balance+int64(k)*amount, result.ToAccount.Balance)
+		require.NotContains(t, existed, k)
+		existed[k] = true
+
+	}
+	// Check the final balances
+	fromAccountFinal, err := testQueries.GetAccount(context.Background(), fromAccount1.ID)	
+	require.NoError(t, err)
+	toAccountFinal, err := testQueries.GetAccount(context.Background(), toAccount2.ID)
+	require.NoError(t, err)
+	require.Equal(t, fromAccount1.Balance-int64(n)*amount, fromAccountFinal.Balance)
+	require.Equal(t, toAccount2.Balance+int64(n)*amount, toAccountFinal.Balance)
+
+	fmt.Printf("After transfer:\n")
+	fmt.Printf("From Account Balance: %v\n", fromAccountFinal.Balance)
+	fmt.Printf("To Account Balance: %v\n", toAccountFinal.Balance)
 
 
 }

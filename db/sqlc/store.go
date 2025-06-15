@@ -58,6 +58,8 @@ type TransferTxResult struct {
 	ToEntry     Entry    `json:"to_entry"`
 }
 
+// txKey is used as a key for context to identify the transaction
+var txKey = struct{}{}
 
 // money transfer transaction
 // i.e create transfer, add each account entries, update each accounts' balance in a single transaction
@@ -65,7 +67,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 	var result TransferTxResult
 	err := store.execTx(ctx, func(q *Queries) error {
 		var err error
-		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{
+		result.Transfer, err = q.CreateTransfer(ctx, CreateTransferParams{ 
 			FromAccountID: arg.FromAccountID,
 			ToAccountID:   arg.ToAccountID,
 			Amount:        arg.Amount,
@@ -92,7 +94,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		}
 
 
-		fromAccount, err := q.GetAccount(ctx, arg.FromAccountID)
+		fromAccount, err := q.GetAccountForUpdate(ctx, arg.FromAccountID)
 		if err != nil {
 			return err
 		}
@@ -106,7 +108,7 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		}
 
 
-		toAccount, err := q.GetAccount(ctx, arg.ToAccountID)
+		toAccount, err := q.GetAccountForUpdate(ctx, arg.ToAccountID)
 		if err != nil {
 			return err 
 		}
